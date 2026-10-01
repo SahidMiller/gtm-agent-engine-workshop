@@ -16,12 +16,16 @@ __all__ = [
     "get_offering", "get_prospect_record", "update_prospect_info",
     "fetch_engagement_history", "fetch_account_details", "fetch_tech_stack",
     "get_profile_from_db", "save_profile_to_db",
-    "get_rep",
+    "get_rep", "public_prospect_view",
 ]
 
 # Built prospect profiles are cached in memory (keyed by prospect_id) so repeat
 # lookups within a run are served without rebuilding.
 _PROFILES = {}
+_PUBLIC_PROSPECT_FIELDS = (
+    "prospect_id", "name", "email", "annual_revenue", "disqualified",
+    "enrichment_source", "engagement_history", "account_details", "tech_stack",
+)
 
 # ---------------------------------------------------------------------------
 # Public data-access functions
@@ -34,6 +38,11 @@ def get_offering(offering_id):
 def get_prospect_record(prospect_id):
     "Return the source prospect record for prospect_id, or None if not found."
     return PROSPECTS.get(prospect_id)
+
+
+def public_prospect_view(record):
+    "Return the allowlisted fields that are safe to expose from a prospect record."
+    return {key: record[key] for key in _PUBLIC_PROSPECT_FIELDS if key in record}
 
 
 def get_rep(rep):
@@ -63,13 +72,14 @@ def fetch_tech_stack(prospect_id):
 @traceable(run_type="tool", name="get_profile_from_db")
 def get_profile_from_db(prospect_id):
     "Look up a stored prospect profile. Returns {'prospect_profile': record|None}."
-    return {"prospect_profile": _PROFILES.get(prospect_id)}
+    profile = _PROFILES.get(prospect_id)
+    return {"prospect_profile": public_prospect_view(profile) if profile is not None else None}
 
 
 @traceable(run_type="tool", name="save_profile_to_db")
 def save_profile_to_db(prospect_id, profile):
     "Persist a prospect profile to the profile store."
-    _PROFILES[prospect_id] = profile
+    _PROFILES[prospect_id] = public_prospect_view(profile)
     return {"saved": True}
 
 def update_prospect_info(prospect_id, technology):

@@ -57,8 +57,7 @@ def build_prospect_profile(prospect_id: str) -> dict:
     if rec is None:
         return {"prospect_profile": None, "found": False}
     built = {
-        "prospect_id": prospect_id,
-        **rec,
+        **data_service.public_prospect_view({**rec, "prospect_id": prospect_id}),
         "engagement_history": data_service.fetch_engagement_history(prospect_id),
         "account_details": data_service.fetch_account_details(prospect_id),
         "tech_stack": data_service.fetch_tech_stack(prospect_id),
@@ -107,6 +106,7 @@ def score_prospect(prospect_profile: dict, offering: dict | None = None) -> dict
     "Score a prospect profile's potential for an offering on a 1-100 scale with a justification. Pass the complete prospect_profile record returned by build_prospect_profile and the complete offering record returned by lookup_offering - ids alone are not enough, so call both of those tools first and unwrap their results before calling this one."
     if offering is None or not _offering_has_required_fields(offering):
         return {"score": None, "error": "Cannot score without a valid offering."}
+    prospect_profile = data_service.public_prospect_view(prospect_profile)
     # Score against the prospect's saved tech stack of record.
     pid = prospect_profile.get("prospect_id")
     if pid is not None:
@@ -130,11 +130,7 @@ def get_prospect(prospect_id: str) -> dict:
         return {"prospect": None, "found": False}
     # Carry the contact fields through, dropping the bulky enrichment blobs the
     # caller can pull from build_prospect_profile instead.
-    contact = {
-        "prospect_id": prospect_id,
-        **{k: v for k, v in record.items()
-           if k not in ("engagement_history", "account_details", "tech_stack")},
-    }
+    contact = data_service.public_prospect_view({**record, "prospect_id": prospect_id})
     return {"prospect": contact, "found": True}
 
 
